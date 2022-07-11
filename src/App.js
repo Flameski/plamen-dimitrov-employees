@@ -1,24 +1,147 @@
-import logo from './logo.svg';
 import './App.css';
+import Papa from 'papaparse';
+import { useState } from 'react';
 
 function App() {
+  const [projects, setProjects] = useState([]);
+  const changeHandler = (e) => {
+    Papa.parse(e.target.files[0], {
+      header: false,
+      skipEmptyLines: true,
+      complete: displayResults,
+    });
+  };
+
+  const displayResults = ({ data }) => {
+    let uniqueProjects = [];
+    // get an array of all projects
+    data.forEach((el) => {
+      if (!uniqueProjects.includes(el[1])) {
+        uniqueProjects.push(el[1]);
+      }
+    });
+    // transform each project into an object
+    uniqueProjects = uniqueProjects.map((project) => {
+      return {
+        projectId: project,
+        participants: [],
+      };
+    });
+    // add participants for every project
+    uniqueProjects.forEach((project) => {
+      data.forEach((el) => {
+        if (project.projectId === el[1]) {
+          project.participants.push(el[0]);
+        }
+      });
+    });
+    // add additional info template for the project
+    uniqueProjects.forEach((proj) => {
+      proj.participants = proj.participants.map((participant) => {
+        return {
+          id: participant,
+          startDate: null,
+          endDate: null,
+        };
+      });
+    });
+
+    // add dates to each participant
+    uniqueProjects.forEach((proj) => {
+      proj.participants.forEach((participant) => {
+        data.forEach((el) => {
+          if (participant.id === el[0] && proj.projectId === el[1]) {
+            let startDate = new Date(el[2]);
+            let endDate = new Date(el[3]);
+            if (el[3] === 'NULL') {
+              endDate = new Date(Date.now());
+            }
+            participant.startDate = startDate;
+            participant.endDate = endDate;
+          }
+        });
+      });
+    });
+
+    uniqueProjects.forEach((proj) => {
+      proj.participants.forEach((participant) => {
+        // check pairs of users working together
+        let users = proj.participants;
+        let daysWorkingTogether = null;
+        let longestWorkingTogether = {
+          projectId: null,
+          days: null,
+          firstWorker: null,
+          secondWorker: null,
+        };
+        for (let i = 0; i < users.length; i++) {
+          if (participant.id === users[i].id) {
+            // same user, skip
+            continue;
+          }
+          if (participant.endDate < users[i].startDate) {
+            // second guy started after the first was finished, skipping
+            continue;
+          } else if (participant.startDate > users[i].endDate) {
+            // first guy started after the second was finished, skipping
+            continue;
+          } else {
+            if (
+              participant.endDate.getDate() === users[i].endDate.getDate() &&
+              participant.endDate.getMonth() === users[i].endDate.getMonth() &&
+              participant.endDate.getFullYear() ===
+                users[i].endDate.getFullYear()
+            ) {
+              // they are both working on a project now, checking who started first
+              let startDate;
+              if (participant.startDate < users[i].startDate) {
+                startDate = users[i].startDate;
+              } else {
+                startDate = participant.startDate;
+              }
+              daysWorkingTogether = Math.floor(
+                (participant.endDate - startDate) / 1000 / 60 / 60 / 24
+              );
+            } else if (participant.endDate < users[i].endDate) {
+              daysWorkingTogether = Math.floor(
+                (participant.endDate - users[i].startDate) / 1000 / 60 / 60 / 24
+              );
+            } else {
+              daysWorkingTogether = Math.floor(
+                (users[i].endDate - participant.startDate) / 1000 / 60 / 60 / 24
+              );
+            }
+            // console.log(
+            //   `User ${participant.id} worked with user ${users[i].id} for ${daysWorkingTogether} days on project ${proj.projectId}`
+            // );
+            if (daysWorkingTogether > longestWorkingTogether.days) {
+              longestWorkingTogether.days = daysWorkingTogether;
+              longestWorkingTogether.firstWorker = participant.id;
+              longestWorkingTogether.secondWorker = users[i].id;
+              longestWorkingTogether.projectId = proj.projectId;
+            }
+            proj.longestWorkingPair = longestWorkingTogether;
+          }
+        }
+      });
+    });
+    setProjects(uniqueProjects);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <h1>Employees App</h1>
+      <input type='file' name='file' accept='.csv' onChange={changeHandler} />
+      {projects.map((proj) => {
+        return (
+          <p key={proj.projectId}>
+            {proj.longestWorkingPair.firstWorker} |
+            {proj.longestWorkingPair.secondWorker} |
+            {proj.longestWorkingPair.projectId} | {proj.longestWorkingPair.days}
+          </p>
+        );
+      })}
+    </>
   );
 }
 
