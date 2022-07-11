@@ -1,15 +1,21 @@
 import './App.css';
 import Papa from 'papaparse';
 import { useState } from 'react';
+import DataRow from './DataRow';
 
 function App() {
   const [projects, setProjects] = useState([]);
+
   const changeHandler = (e) => {
-    Papa.parse(e.target.files[0], {
-      header: false,
-      skipEmptyLines: true,
-      complete: displayResults,
-    });
+    try {
+      Papa.parse(e.target.files[0], {
+        header: false,
+        skipEmptyLines: true,
+        complete: displayResults,
+      });
+    } catch (error) {
+      console.warn(error);
+    }
   };
 
   const displayResults = ({ data }) => {
@@ -83,7 +89,7 @@ function App() {
             // second guy started after the first was finished, skipping
             continue;
           } else if (participant.startDate > users[i].endDate) {
-            // first guy started after the second was finished, skipping
+            // first girl started after the second was finished, skipping
             continue;
           } else {
             if (
@@ -131,15 +137,26 @@ function App() {
   return (
     <>
       <h1>Employees App</h1>
-      <input type='file' name='file' accept='.csv' onChange={changeHandler} />
+      <label htmlFor='file-upload'>
+        <p>Upload file</p>
+        <input
+          type='file'
+          name='file'
+          id='file-upload'
+          accept='.csv'
+          onChange={changeHandler}
+        />
+      </label>
+      {projects.length > 0 && (
+        <section className='data-row' style={{ paddingTop: '2rem' }}>
+          <div>Employee ID #1</div>
+          <div>Employee ID #2</div>
+          <div>Project ID</div>
+          <div>Days worked</div>
+        </section>
+      )}
       {projects.map((proj) => {
-        return (
-          <p key={proj.projectId}>
-            {proj.longestWorkingPair.firstWorker} |
-            {proj.longestWorkingPair.secondWorker} |
-            {proj.longestWorkingPair.projectId} | {proj.longestWorkingPair.days}
-          </p>
-        );
+        return <DataRow key={proj.projectId} proj={proj} />;
       })}
     </>
   );
